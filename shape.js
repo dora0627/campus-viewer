@@ -137,6 +137,22 @@ export function buildShaped(b, opts = {}) {
   return { L: S.L, plain, textured, topRing: S.topRing, ringAt: S.ringAt, bands: S.bands, pieces, ms: performance.now() - t0 };
 }
 
+// 連接橋(links.json):兩面之間最近的兩點拉一座;高度取兩棟「那一層」重疊的範圍(兩棟層高不同時才不會一邊高一邊低)
+export function linkGeometry(link, byId) {
+  const ends = [link.from, link.to].map((e) => { const b = byId.get(e.building), f = b?.faces.find((x) => x.id === e.face); return b && f ? { b, p: b.ring[f.edge], q: b.ring[(f.edge + 1) % b.ring.length] } : null; });
+  if (ends.some((e) => !e)) return null;
+  let best = null;
+  const [a, c] = ends;
+  for (let i = 0; i <= 20; i++) for (let j = 0; j <= 20; j++) {
+    const p = [a.p[0] + (a.q[0] - a.p[0]) * i / 20, a.p[1] + (a.q[1] - a.p[1]) * i / 20], q = [c.p[0] + (c.q[0] - c.p[0]) * j / 20, c.p[1] + (c.q[1] - c.p[1]) * j / 20], d = Math.hypot(p[0] - q[0], p[1] - q[1]);
+    if (!best || d < best.d) best = { p, q, d };
+  }
+  const Ls = ends.map((e) => levelsOf(e.b)), lo = Math.max(...Ls.map((L) => L.bottom(link.level))), hi = Math.min(...Ls.map((L) => L.top(link.level)));
+  const [y0, y1] = hi - lo > 1 ? [lo, hi] : [Ls[0].bottom(link.level), Ls[0].top(link.level)]; // 兩棟那一層幾乎沒重疊時,照起點那棟
+  const geo = new THREE.BoxGeometry(best.d + 1, y1 - y0, 3).rotateY(-Math.atan2(best.q[1] - best.p[1], best.q[0] - best.p[0])).translate((best.p[0] + best.q[0]) / 2, (y0 + y1) / 2, (best.p[1] + best.q[1]) / 2);
+  return { geo, y0, y1, level: link.level, ids: ends.map((e) => e.b.id) };
+}
+
 // ── 樓層工具 ──
 export function floorUniforms(L) {
   return { uG: { value: L.g }, uT: { value: L.typ }, uN: { value: L.n }, uPick: { value: 0 }, uHover: { value: 0 }, uCut: { value: 1e5 }, uLo: { value: -1e5 }, uHi: { value: 1e5 }, uTint: { value: new THREE.Color(0xffa31a) } };

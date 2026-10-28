@@ -5,6 +5,7 @@
 // 網址參數:?run=A|B|AB 自動開始;&pace=毫秒(每棟之間的停頓,只影響畫面,不算進生成時間)
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { addNav } from './nav.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 
 const $ = (id) => document.getElementById(id);
@@ -62,6 +63,7 @@ scene.add(new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(bpts), new
 const center = bpts.reduce((a, p) => a.add(p), new THREE.Vector3()).multiplyScalar(1 / bpts.length);
 controls.target.copy(center);
 camera.position.set(center.x - 260, 300, center.z + 330);
+const nav = addNav({ camera, controls, renderer, scene, buildings: data.buildings });
 
 // ── 兩種生成方法 ──
 function shapeOf(ring) {
@@ -229,6 +231,7 @@ renderer.setAnimationLoop(() => {
     rising[i].mesh.scale.y = 1 - (1 - k) ** 3;
     if (k >= 1) rising.splice(i, 1);
   }
+  nav.update();
   controls.update();
   renderer.render(scene, camera);
   if (labelTarget) {

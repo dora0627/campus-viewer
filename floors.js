@@ -1,16 +1,17 @@
-// 樓層工具與挖空的測試頁:計網中心、理化實驗大樓用 shape.js 建(A + cuts)、打包,再加樓層著色器。
+// 樓層工具與挖空:30 棟都用 shape.js 建(A + cuts)、打包,再加樓層著色器(沒有規格的棟用推定的層高)。
 // 點牆 → 那層高亮;剖切 → 那層以上不畫、切口蓋樓板;爆炸圖 → 同一份幾何畫 N 次,每次只留一層。
 // 網址參數:?run=test 自動跑完,量三角形、draw call、點選準確度(結果放在 window.__pack,給錄影腳本讀)
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { buildRoof } from './roof.js';
+import { addNav } from './nav.js';
 import { packBuilding } from './pack.js';
-import { buildShaped, edgeFrame, floorUniforms, patchFloors, slabGeometry, slabMaterial } from './shape.js';
+import { buildShaped, edgeFrame, floorUniforms, linkGeometry, patchFloors, slabGeometry, slabMaterial } from './shape.js';
 
 const $ = (id) => document.getElementById(id);
 const params = new URLSearchParams(location.search);
-const TEST = ['NCKU-CC', 'NCKU-PC'];
+const RAYTEST = ['NCKU-CC', 'NCKU-PC']; // 點選準確度只量這兩棟(其他棟的層高是推定的)
 const GAP = 4; // 爆炸圖每層拉開幾公尺
 const SETBACK = { from_floor: 6, inset_m: 2.5 }; // 示範用(資料裡沒有退縮的建築)
 
@@ -49,30 +50,27 @@ scene.add(ground);
 
 // 其他建築:白模合成一個 mesh(只當背景)
 const shapeOf = (ring) => { const s = new THREE.Shape(); ring.forEach(([x, z], i) => (i ? s.lineTo(x, -z) : s.moveTo(x, -z))); return s; };
-const ctx = new THREE.Mesh(mergeGeometries(data.buildings.filter((b) => !TEST.includes(b.id)).map((b) => new THREE.ExtrudeGeometry(shapeOf(b.ring), { depth: b.height_m, bevelEnabled: false }).rotateX(-Math.PI / 2).toNonIndexed())),
-  new THREE.MeshStandardMaterial({ color: 0xdedad2, roughness: 0.85 }));
-ctx.castShadow = ctx.receiveShadow = true;
+const TEST = data.buildings.map((b) => b.id); // 每一棟都能選樓層
+const ctx = new THREE.Group(); // (舊版的背景白模;現在每棟都建,留著給射線判斷「被別的東西擋住」)
 scene.add(ctx);
 
-// 連接橋(links.json):跟 texture.js 一樣,兩面最近兩點拉一座
-function linkMesh(link) {
-  const ends = [link.from, link.to].map((e) => { const b = byId.get(e.building), f = b?.faces.find((x) => x.id === e.face); return b && f ? [b.ring[f.edge], b.ring[(f.edge + 1) % b.ring.length], b] : null; });
-  if (ends.some((e) => !e)) return null;
-  let best = null;
-  const [[a1, a2], [b1, b2]] = ends;
-  for (let i = 0; i <= 20; i++) for (let j = 0; j <= 20; j++) {
-    const p = [a1[0] + (a2[0] - a1[0]) * i / 20, a1[1] + (a2[1] - a1[1]) * i / 20], q = [b1[0] + (b2[0] - b1[0]) * j / 20, b1[1] + (b2[1] - b1[1]) * j / 20], d = Math.hypot(p[0] - q[0], p[1] - q[1]);
-    if (!best || d < best.d) best = { p, q, d };
-  }
-  const fh = ends[0][2].height_m / ends[0][2].floors, y = (link.level - 1) * fh, geo = new THREE.BoxGeometry(best.d + 1, fh, 3);
-  geo.rotateY(-Math.atan2(best.q[1] - best.p[1], best.q[0] - best.p[0]));
-  geo.translate((best.p[0] + best.q[0]) / 2, y + fh / 2, (best.p[1] + best.q[1]) / 2);
-  const m = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color: 0xa4503a, roughness: 0.85 }));
+// 連接橋(links.json):屬於兩棟的同一層 → 選到那層時一起上色;剖切到那層以下、或任一棟拉開成爆炸圖時先藏起來
+const links = data.links.map((l) => linkGeometry(l, byId)).filter(Boolean).map((L) => {
+  const m = new THREE.Mesh(L.geo, new THREE.MeshStandardMaterial({ color: 0xa4503a, roughness: 0.85 }));
   m.castShadow = true;
+  m.userData.link = L;
   scene.add(m);
   return m;
+});
+function updateLinks() {
+  for (const m of links) {
+    const L = m.userData.link, sts = L.ids.map((id) => B.get(id)).filter(Boolean);
+    m.visible = !sts.some((st) => st.slices || st.u.uCut.value < L.y1 - 0.01);
+    const on = sts.some((st) => st.u.uPick.value === L.level), hov = sts.some((st) => st.u.uHover.value === L.level);
+    m.material.emissive.set(on ? 0xffa31a : hov ? 0x6b4508 : 0x000000);
+    m.material.emissiveIntensity = on ? 0.5 : 1;
+  }
 }
-data.links.forEach(linkMesh);
 
 // ── 測試建築:shape.js 建 → 打包(每棟 2 個 draw call)→ 材質加樓層著色器 ──
 const B = new Map(); // id → { b, L, u, shaped, group, tris, slices, cap }
@@ -147,7 +145,10 @@ const ray = new THREE.Raycaster(), mouse = new THREE.Vector2();
 function hitFloor(origin, dir) {
   ray.set(origin, dir);
   const targets = [...B.values()].flatMap((st) => (st.slices ? st.slices.children : st.group.children).concat(st.cap ? [st.cap] : []));
-  for (const h of ray.intersectObjects([...targets, ctx], false)) {
+  for (const h of ray.intersectObjects([...targets, ...links, ctx], false)) {
+    if (!h.object.visible) continue;
+    const lk = h.object.userData.link;
+    if (lk) return { id: lk.ids.find((i) => i === sel?.id) ?? lk.ids[0], floor: lk.level, y: h.point.y, link: true };
     const id = h.object.userData.bid;
     if (!id) return null; // 被其他建築擋住
     const st = B.get(id), y = h.point.y - h.object.position.y;
@@ -168,7 +169,8 @@ renderer.domElement.addEventListener('pointermove', (e) => {
   const h = hitAt(e.clientX, e.clientY);
   for (const st of B.values()) st.u.uHover.value = h?.id === st.b.id ? h.floor : 0;
   Object.assign($('tip').style, { display: h ? 'block' : 'none', left: `${e.clientX + 14}px`, top: `${e.clientY + 10}px` });
-  if (h) $('tip').textContent = `${B.get(h.id).b.name} ${h.roof ? '屋頂' : `${h.floor} 樓`}`;
+  if (h) $('tip').textContent = h.link ? `連接橋(${h.floor} 樓)` : `${B.get(h.id).b.name} ${h.roof ? '屋頂' : `${h.floor} 樓`}`;
+  updateLinks();
 });
 let down = null;
 renderer.domElement.addEventListener('pointerdown', (e) => (down = [e.clientX, e.clientY]));
@@ -211,10 +213,11 @@ function measure(label) {
   return row;
 }
 function render() {
+  updateLinks();
   const st = sel && B.get(sel.id);
   $('now').innerHTML = st ? `<div class="name">${st.b.name} ${sel.floor} 樓</div>
     <div class="kv">共 ${st.L.n} 層・一樓 ${st.L.g.toFixed(1)} m、標準層 ${st.L.typ.toFixed(2)} m・這層 ${st.L.bottom(sel.floor).toFixed(1)}–${st.L.top(sel.floor).toFixed(1)} m</div>
-    <div class="kv">${clipOn ? '剖切中:這層以上不畫' : ''}${st.slices ? '爆炸圖:每層拉開 ' + GAP + ' m' : ''}</div>` : '<div class="kv">點牆選樓層(計網中心、理化實驗大樓)</div>';
+    <div class="kv">${clipOn ? '剖切中:這層以上不畫' : ''}${st.slices ? '爆炸圖:每層拉開 ' + GAP + ' m' : ''}</div>` : '<div class="kv">點任何一棟的牆選樓層;右上角可以跳到建築</div>';
   $('clipBtn').classList.toggle('on', clipOn);
   $('explodeBtn').classList.toggle('on', !!(sel && B.get(sel.id).slices));
   $('cutsBtn').classList.toggle('on', cutsOn);
@@ -240,9 +243,10 @@ function overview() {
   controls.target.set(cx, 10, cz);
 }
 overview();
+const nav = addNav({ camera, controls, renderer, scene, buildings: data.buildings });
 
 addEventListener('resize', () => { camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); });
-renderer.setAnimationLoop(() => { controls.update(); renderer.render(scene, camera); });
+renderer.setAnimationLoop(() => { nav.update(); controls.update(); renderer.render(scene, camera); });
 window.__ready = true;
 measure('挖空開');
 render();
@@ -253,7 +257,7 @@ async function step(n, ms = 900) { controls.update(); await sleep(ms); window.__
 async function runTest() {
   const res = {};
   // 法線檢查:shape.js 自己算的朝外法線 vs 資料裡的 normal_deg
-  res.normals = Math.min(...TEST.flatMap((id) => byId.get(id).faces.map((f) => { const F = edgeFrame(byId.get(id).ring, f.edge), r = (f.normal_deg * Math.PI) / 180; return F.n[0] * Math.sin(r) - F.n[1] * Math.cos(r); })));
+  res.normals = Math.min(...RAYTEST.flatMap((id) => byId.get(id).faces.map((f) => { const F = edgeFrame(byId.get(id).ring, f.edge), r = (f.normal_deg * Math.PI) / 180; return F.n[0] * Math.sin(r) - F.n[1] * Math.cos(r); })));
   cutsOn = false; for (const id of TEST) build(id, optsOf(id)); res.plain = measure('A(沒挖空)');
   cutsOn = true; for (const id of TEST) build(id, optsOf(id)); res.cuts = measure('A + 挖空');
   render();
@@ -267,7 +271,7 @@ async function runTest() {
   unexplode('NCKU-CC'); clear();
   // 點選準確度:每一面、每一層的中間高度,從牆外 15 m 打一條水平射線
   const acc = { ok: 0, wrong: 0, blocked: 0, bad: [] };
-  for (const id of TEST) {
+  for (const id of RAYTEST) {
     const st = B.get(id), b = st.b;
     for (const f of b.faces) {
       const F = edgeFrame(b.ring, f.edge), cs = f.spec?.cuts ?? [], t = cs.some((c) => c.t0 <= 0.5 && 0.5 <= c.t1) ? 0.1 : 0.5, p = F.at(t);
@@ -282,6 +286,14 @@ async function runTest() {
   res.ray = acc;
   setbackOn = true; build('NCKU-PC', optsOf('NCKU-PC')); res.setback = measure('示範退縮(理化 6 樓以上退 2.5 m)'); render();
   { const [x, z] = center('NCKU-PC'); camera.position.set(x + 30, 48, z + 62); controls.target.set(x, 14, z); } await step(7);
+  // 連接橋:選理化 2 樓 → 橋一起上色;計網中心爆炸圖時橋藏起來
+  setbackOn = false; build('NCKU-PC', optsOf('NCKU-PC'));
+  select('NCKU-PC', 2);
+  const lb = links[0] && new THREE.Box3().setFromObject(links[0]).getCenter(new THREE.Vector3());
+  if (lb) { camera.position.set(lb.x + 30, 22, lb.z - 26); controls.target.copy(lb); }
+  res.link = { y: links[0] && [links[0].userData.link.y0, links[0].userData.link.y1], lit: links[0]?.material.emissive.getHex() };
+  await step(8);
+  explode('NCKU-CC'); render(); res.link.hiddenWhenExploded = !links[0]?.visible; unexplode('NCKU-CC'); clear();
   window.__pack = res;
   window.__done = true;
 }

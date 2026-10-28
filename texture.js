@@ -3,11 +3,12 @@
 // 網址參數:?run=all 自動跑完;&pace=毫秒(每一面之間的停頓,只影響畫面)
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { addNav } from './nav.js';
 import { drawFacade } from './facade.js';
 import { buildRoof } from './roof.js';
 import { packBuilding } from './pack.js';
 import { buildSite } from './site.js';
-import { massShape, faceMesh } from './shape.js';
+import { massShape, faceMesh, linkGeometry } from './shape.js';
 import { GLTFExporter } from 'three/addons/exporters/GLTFExporter.js';
 
 const $ = (id) => document.getElementById(id);
@@ -81,6 +82,7 @@ const focus = new THREE.Vector3();
 for (const b of withSpec) for (const [x, z] of b.ring) focus.add(new THREE.Vector3(x, 0, z).multiplyScalar(1 / b.ring.length / withSpec.length));
 controls.target.copy(focus);
 camera.position.set(focus.x - 70, 70, focus.z + 95);
+const nav = addNav({ camera, controls, renderer, scene, buildings: data.buildings });
 
 // 一面的位置:牆線中點、朝外法線、長度;平面的 +x 正好是「站在外面看的右手邊」,所以貼圖左→右不用翻
 function faceFrame(b, f) {
@@ -108,25 +110,12 @@ function stairTower(b, f, e, frame, fh) {
   return grp;
 }
 
-// 連接構件(links.json):兩面之間最近兩點拉一座橋
+// 連接構件(links.json):兩面之間最近兩點拉一座橋(shape.js,高度用兩棟那一層的實際高度)
+const byIdT = new Map(data.buildings.map((b) => [b.id, b]));
 function linkMesh(link) {
-  const ends = [link.from, link.to].map((e) => {
-    const b = data.buildings.find((x) => x.id === e.building), f = b?.faces.find((x) => x.id === e.face);
-    return b && f ? [b.ring[f.edge], b.ring[(f.edge + 1) % b.ring.length], b] : null;
-  });
-  if (ends.some((e) => !e)) return null;
-  let best = null;
-  const [[a1, a2], [b1, b2]] = ends;
-  for (let i = 0; i <= 20; i++) for (let j = 0; j <= 20; j++) {
-    const p = [a1[0] + (a2[0] - a1[0]) * i / 20, a1[1] + (a2[1] - a1[1]) * i / 20], q = [b1[0] + (b2[0] - b1[0]) * j / 20, b1[1] + (b2[1] - b1[1]) * j / 20];
-    const d = Math.hypot(p[0] - q[0], p[1] - q[1]);
-    if (!best || d < best.d) best = { p, q, d };
-  }
-  const fh = ends[0][2].height_m / ends[0][2].floors, y = (link.level - 1) * fh;
-  const geo = new THREE.BoxGeometry(best.d + 1, fh, 3);
-  geo.rotateY(-Math.atan2(best.q[1] - best.p[1], best.q[0] - best.p[0]));
-  geo.translate((best.p[0] + best.q[0]) / 2, y + fh / 2, (best.p[1] + best.q[1]) / 2);
-  const m = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color: 0xa4503a, roughness: 0.85 }));
+  const L = linkGeometry(link, byIdT);
+  if (!L) return null;
+  const m = new THREE.Mesh(L.geo, new THREE.MeshStandardMaterial({ color: 0xa4503a, roughness: 0.85 }));
   m.castShadow = true;
   return m;
 }
@@ -607,6 +596,7 @@ $('runAll').onclick = async () => {
 
 addEventListener('resize', () => { camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); });
 renderer.setAnimationLoop(() => {
+  nav.update();
   if (fly) {
     const k = Math.min(1, (performance.now() - fly.s) / fly.ms), e = k * k * (3 - 2 * k);
     camera.position.lerpVectors(fly.p0, fly.p1, e);
