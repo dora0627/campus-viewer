@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>成大校園 3D 檢視器</title>
+<style>
+  :root { --bg: #14161a; --card: #1d2026; --ink: #f2f2f2; --dim: #a6abb3; --line: rgba(255, 255, 255, 0.12); --acc: #f0b44c; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.6 system-ui, "PingFang TC", sans-serif; }
+  main { max-width: 760px; margin: 0 auto; padding: 40px 16px; }
+  h1 { font-size: 24px; margin: 0 0 6px; }
+  p { color: var(--dim); margin: 0 0 24px; }
+  .card { display: block; padding: 16px 18px; margin-bottom: 12px; background: var(--card); border: 1px solid var(--line); border-radius: 12px; color: inherit; text-decoration: none; }
+  .card:hover { border-color: var(--acc); }
+  .card b { display: block; font-size: 17px; margin-bottom: 4px; }
+  .card span { color: var(--dim); font-size: 14px; }
+  footer { margin-top: 28px; color: var(--dim); font-size: 12px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>成大校園 3D 檢視器(成功校區)</h1>
+  <p>街景截圖 → AI 描述 → 程式生成的研究成果。30 棟建築,模型與貼圖都由程式依規格畫出,不含任何照片或截圖。</p>
+  <a class="card" href="gen.html"><b>白模生成</b><span>30 棟從輪廓拉成量體:A 整棟一次拉高 vs B 逐層疊,比較時間與三角形數。</span></a><a class="card" href="texture.html"><b>立面貼圖、打包</b><span>依 AI 寫的立面規格畫貼圖、貼上牆面、加屋頂與道路,最後合併成每棟 2 個 draw call 並做效能檢查。按「依序跑完」。</span></a><a class="card" href="floors.html"><b>樓層工具、挖空</b><span>點牆選樓層、剖切、爆炸圖;騎樓、內凹、外凸的挖空。都在整棟拉高的模型上做,不逐層建模。</span></a>
+  <footer>建築輪廓、道路:© OpenStreetMap contributors,以 ODbL 授權提供。研究用展示,非國立成功大學官方網站。資料版本 2026-10-28。</footer>
+</main>
+</body>
+</html>

@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>成大樓層與挖空</title>
+<style>
+  :root { --bg: #14161a; --panel: rgba(20, 22, 26, 0.88); --ink: #f2f2f2; --dim: #a6abb3; --line: rgba(255, 255, 255, 0.12); --acc: #f0b44c; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--ink); font: 14px/1.5 system-ui, "PingFang TC", sans-serif; overflow: hidden; }
+  canvas { display: block; }
+  #hud { position: fixed; top: 16px; left: 16px; width: 360px; max-width: calc(100% - 32px); max-height: calc(100% - 32px); overflow: auto; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; z-index: 2; }
+  h1 { font-size: 17px; margin: 0 0 2px; }
+  .sub { color: var(--dim); font-size: 12px; margin-bottom: 10px; }
+  .btns { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
+  button { font: inherit; padding: 6px 10px; border-radius: 8px; border: 1px solid var(--line); background: #262a31; color: var(--ink); cursor: pointer; }
+  button.on { border-color: var(--acc); color: var(--acc); }
+  button:disabled { opacity: 0.4; cursor: default; }
+  .step { color: var(--acc); font-weight: 700; }
+  #now { border-top: 1px solid var(--line); padding-top: 8px; }
+  #now .name { font-size: 16px; font-weight: 700; }
+  .kv { color: var(--dim); font-size: 12px; }
+  table { width: 100%; border-collapse: collapse; margin-top: 8px; font-size: 12px; font-variant-numeric: tabular-nums; }
+  th, td { padding: 3px 4px; border-bottom: 1px solid var(--line); text-align: right; white-space: nowrap; }
+  th:first-child, td:first-child { text-align: left; }
+  th { color: var(--dim); font-weight: 400; }
+  #tip { position: fixed; pointer-events: none; padding: 2px 8px; background: rgba(0, 0, 0, 0.75); border-radius: 6px; font-size: 13px; z-index: 3; display: none; }
+  #credit { position: fixed; right: 12px; bottom: 8px; color: var(--dim); font-size: 11px; text-shadow: 0 0 3px #000; z-index: 2; }
+</style>
+</head>
+<body>
+  <div id="hud">
+    <h1>樓層工具 + 挖空</h1>
+    <div class="sub">A 整棟拉高的模型,不逐層建模:樓層由著色器依高度算,挖空是幾段拉高的輪廓</div>
+    <div class="btns">
+      <button id="cutsBtn" class="on">挖空:開</button>
+      <button id="clipBtn">剖切</button>
+      <button id="explodeBtn">爆炸圖</button>
+      <button id="setbackBtn">示範退縮</button>
+      <button id="clearBtn">清除</button>
+    </div>
+    <div id="now"><div class="kv">點牆選樓層(計網中心、理化實驗大樓)</div></div>
+    <table id="stats"><thead><tr><th>狀態</th><th>三角形</th><th>draw call</th></tr></thead><tbody></tbody></table>
+    <div id="legend" hidden></div>
+  </div>
+  <div id="tip"></div>
+  <div id="credit"></div>
+  <script type="importmap">
+  { "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+  } }
+  </script>
+  <script type="module" src="floors.js"></script>
+</body>
+</html>

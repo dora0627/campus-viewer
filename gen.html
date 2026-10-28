@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>成大建築生成</title>
+<style>
+  :root { --bg: #14161a; --panel: rgba(20, 22, 26, 0.86); --ink: #f2f2f2; --dim: #a6abb3; --line: rgba(255, 255, 255, 0.12); --a: #f0b44c; --b: #5fb3f0; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--ink); font: 14px/1.5 system-ui, "PingFang TC", sans-serif; overflow: hidden; }
+  canvas { display: block; }
+  #hud { position: fixed; top: 16px; left: 16px; width: 360px; max-height: calc(100% - 32px); overflow: auto; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; }
+  h1 { font-size: 17px; margin: 0 0 2px; }
+  .sub { color: var(--dim); font-size: 12px; margin-bottom: 10px; }
+  .btns { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
+  button { font: inherit; padding: 6px 10px; border-radius: 8px; border: 1px solid var(--line); background: #262a31; color: var(--ink); cursor: pointer; }
+  button:disabled { opacity: 0.4; cursor: default; }
+  .tag { display: inline-block; padding: 0 6px; border-radius: 5px; font-size: 12px; font-weight: 700; color: #111; }
+  .tag.A { background: var(--a); } .tag.B { background: var(--b); }
+  #now { border-top: 1px solid var(--line); padding-top: 8px; min-height: 92px; }
+  #now .name { font-size: 16px; font-weight: 700; }
+  #now .kv { color: var(--dim); font-size: 12px; }
+  .bar { height: 6px; background: #2b2f36; border-radius: 3px; overflow: hidden; margin: 6px 0 2px; }
+  .bar > div { height: 100%; width: 0; background: var(--a); transition: width 0.15s; }
+  table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 13px; font-variant-numeric: tabular-nums; }
+  th, td { padding: 4px 6px; border-bottom: 1px solid var(--line); text-align: right; }
+  th:first-child, td:first-child { text-align: left; color: var(--dim); font-weight: 400; }
+  #pipe { font-size: 12px; color: var(--dim); border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; margin-bottom: 10px; }
+  #pipe b { color: var(--ink); }
+  #note { color: var(--dim); font-size: 12px; margin-top: 8px; }
+  #label { position: fixed; pointer-events: none; padding: 2px 8px; border-radius: 6px; background: rgba(0, 0, 0, 0.7); font-size: 13px; white-space: nowrap; transform: translate(-50%, -130%); display: none; }
+  #credit { position: fixed; right: 12px; bottom: 8px; color: var(--dim); font-size: 11px; text-shadow: 0 0 3px #000; }
+</style>
+</head>
+<body>
+  <div id="hud">
+    <h1>成功校區 建築生成</h1>
+    <div class="sub">白模階段(不含貼圖)・資料:建物輪廓 + 高度 + 樓層數</div>
+    <div id="pipe"></div>
+    <div class="btns">
+      <button id="runA"><span class="tag A">A</span> 整體拉高</button>
+      <button id="runB"><span class="tag B">B</span> 逐層堆疊</button>
+      <button id="runAB">A → B 依序比較</button>
+    </div>
+    <div id="now"><div class="kv">按上面的按鈕開始</div></div>
+    <table id="result" hidden>
+      <thead><tr><th></th><th><span class="tag A">A</span> 整體拉高</th><th><span class="tag B">B</span> 逐層堆疊</th></tr></thead>
+      <tbody></tbody>
+    </table>
+    <div id="note"></div>
+  </div>
+  <div id="label"></div>
+  <div id="credit"></div>
+  <script type="importmap">
+  { "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+  } }
+  </script>
+  <script type="module" src="gen.js"></script>
+</body>
+</html>

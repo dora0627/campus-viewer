@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>成大立面貼圖</title>
+<style>
+  :root { --bg: #14161a; --panel: rgba(20, 22, 26, 0.88); --ink: #f2f2f2; --dim: #a6abb3; --line: rgba(255, 255, 255, 0.12); --acc: #f0b44c; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--ink); font: 14px/1.5 system-ui, "PingFang TC", sans-serif; overflow: hidden; }
+  canvas { display: block; }
+  #hud { position: fixed; top: 16px; left: 16px; width: 380px; max-height: calc(100% - 32px); overflow: auto; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; z-index: 2; }
+  h1 { font-size: 17px; margin: 0 0 2px; }
+  .sub { color: var(--dim); font-size: 12px; margin-bottom: 10px; }
+  .btns { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
+  button { font: inherit; padding: 6px 10px; border-radius: 8px; border: 1px solid var(--line); background: #262a31; color: var(--ink); cursor: pointer; }
+  button:disabled { opacity: 0.4; cursor: default; }
+  .step { color: var(--acc); font-weight: 700; }
+  #now { border-top: 1px solid var(--line); padding-top: 8px; }
+  #now .name { font-size: 16px; font-weight: 700; }
+  .kv { color: var(--dim); font-size: 12px; }
+  table { width: 100%; border-collapse: collapse; margin-top: 8px; font-size: 12px; font-variant-numeric: tabular-nums; }
+  th, td { padding: 3px 4px; border-bottom: 1px solid var(--line); text-align: right; white-space: nowrap; }
+  th:first-child, td:first-child { text-align: left; }
+  th { color: var(--dim); font-weight: 400; }
+  #sum { margin-top: 8px; font-size: 12px; color: var(--dim); }
+  #sum b { color: var(--ink); }
+  #cmp { position: fixed; inset: 0; display: none; z-index: 1; pointer-events: none; overflow: hidden; }
+  #veil { position: absolute; box-shadow: 0 0 0 9999px rgba(20, 22, 26, 0.94); } /* 只露出右邊模型那一格,其他蓋暗 */
+  #cmp img { position: absolute; object-fit: fill; }
+  #cmp .cap { position: absolute; padding: 2px 10px; background: rgba(0, 0, 0, 0.7); border-radius: 6px; font-size: 13px; }
+  #legend { margin-top: 8px; font-size: 12px; }
+  #legend span { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin: 0 4px 0 8px; vertical-align: -1px; }
+  #credit { position: fixed; right: 12px; bottom: 8px; color: var(--dim); font-size: 11px; text-shadow: 0 0 3px #000; z-index: 2; }
+</style>
+</head>
+<body>
+  <div id="hud">
+    <h1>立面貼圖 + 比對</h1>
+    <div class="sub">規格(AI)→ 程式畫貼圖 → 貼到白模 → 用截圖的相機位置比對</div>
+    <div class="btns">
+      <button id="runAll">▶ 依序跑完</button>
+      <button id="runTex">① 貼立面</button>
+      <button id="runCmp">② 比對</button>
+      <button id="runPack">③ 打包</button>
+      <button id="srcBtn">顯示來源</button>
+      <button id="groundBtn">底圖:正射</button>
+    </div>
+    <div id="now"><div class="kv">白模已載入;按「依序跑完」開始</div></div>
+    <table id="faces" hidden><thead><tr><th>面</th><th>樣式</th><th>層×組</th><th>規格$</th><th>畫圖</th><th>貼圖</th><th>分數</th></tr></thead><tbody></tbody></table>
+    <div id="sum"></div>
+    <div id="legend" hidden></div>
+  </div>
+  <div id="cmp"><div id="veil"></div><img id="shot" alt="截圖"><div class="cap" id="capL">截圖(Google 街景,僅供比對)</div><div class="cap" id="capR">模型(同位置、同朝向、同視角)</div></div>
+  <div id="credit"></div>
+  <script type="importmap">
+  { "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+  } }
+  </script>
+  <script type="module" src="texture.js"></script>
+</body>
+</html>
